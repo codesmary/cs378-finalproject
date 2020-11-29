@@ -11,16 +11,15 @@ def create_embedding_layer(weights_matrix, non_trainable=True):
 
     return emb_layer, num_embeddings, embedding_dim
 
-#I think I need to sample z but I'm not sure how to do this 
 class LSTM(torch.nn.Module):
-    def __init__(self, weights_matrix):
+    def __init__(self, weights_matrix, hidden=150, layers=2, dropout=0.2, latent_dim=2):
         super().__init__()
-        self.hidden = 150
-        self.num_layers = 2
+        self.hidden = hidden
+        self.num_layers = layers
         self.embedding, num_embeddings, emb_dim = create_embedding_layer(weights_matrix)
-        self.rnn = torch.nn.LSTM(emb_dim, self.hidden, num_layers=self.num_layers, dropout=0.2, batch_first=True)
+        self.rnn = torch.nn.LSTM(emb_dim, self.hidden, num_layers=self.num_layers, dropout=dropout, batch_first=True)
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(self.hidden, num_embeddings),
+            torch.nn.Linear(self.hidden, latent_dim),
             torch.nn.LogSoftmax(dim=1)
         )
         self.init_weight()
@@ -33,6 +32,10 @@ class LSTM(torch.nn.Module):
                 torch.nn.init.xavier_uniform_(param)
 
     def forward(self, X):
+        """
+        :param X: [batch_size, seq_len] tensor
+        :return: context vector z with shape of [batch_size, latent_variable_size]
+        """
         embedded_input = self.embedding(X)
         batch_size = embedded_input.shape[0]
         if len(embedded_input.shape) == 2:
@@ -81,21 +84,21 @@ class DilatedCNN(torch.nn.Module):
         self.network = torch.nn.Sequential(*L)
         self.classifier = torch.nn.Conv1d(c, 5020, 1)
     
-    def forward(self, X, state):
+    def forward(self, X, z):
         x = F.pad(x, (1, 0), 'constant', 0)
         x = self.network(x)
         x = self.classifier(x)
         return x
 
 class VariationalAutoencoder(torch.nn.Module):
-    def __init__(self, encoder, decoder):
+    def __init__(self, weights_matrix):
         super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
+        self.encoder = LSTM(weights_matrix)
+        self.decoder = DilatedCNN()
 
     def forward(self, enc_X, dec_X):
-        enc_output = self.encoder(enc_X)
-        return self.decoder(dec_X, enc_output)
+        z = self.encoder(enc_X)
+        return self.decoder(dec_X, z)
 
 def save_model(model):
     if isinstance(model, VariationalAutoencoder):
