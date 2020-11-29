@@ -5,74 +5,7 @@ import random
 from sentiment_data import *
 import nltk
 import json
-from heapq import heappush, heapreplace
-
-def sample_random(model, word_embeddings, max_length: int = 20):
-    st = ''
-    for i in range(max_length):
-        prob = torch.FloatTensor(model.get_next_word_log_probs(st))
-        idx = torch.distributions.Categorical(logits=prob).sample()
-        idx = idx.item()
-        next_word = word_embeddings.word_indexer.get_object(idx)
-        if next_word == "PAD":
-            next_word = " "
-        st += next_word
-        if next_word == '.':
-            break
-    return st
-
-# class TopNHeap:
-#     """
-#     A heap that keeps the top N elements around
-#     h = TopNHeap(2)
-#     h.add(1)
-#     h.add(2)
-#     h.add(3)
-#     h.add(0)
-#     print(h.elements)
-#     > [2,3]
-
-#     """
-#     def __init__(self, N):
-#         self.elements = []
-#         self.N = N
-
-#     def add(self, e):
-#         from heapq import heappush, heapreplace
-#         if len(self.elements) < self.N:
-#             heappush(self.elements, e)
-#         elif self.elements[0] < e:
-#             heapreplace(self.elements, e)
-
-#     def get_all(self):
-#         return self.elements
-
-# def beam_search(model, word_embeddings, beam_size: int, n_results: int = 10, max_length: int = 20, average_log_likelihood: bool = False):
-#     heap = TopNHeap(beam_size)
-#     sent = TopNHeap(n_results)
-#     heap.add((0,' '))
-#     beams= [heap]
-#     for t in range(max_length):
-#         beams.append(TopNHeap(beam_size))
-#         for beam in beams[t].get_all():
-#             scr, str = beam
-#             for i in range(len(word_embeddings.word_indexer.objs_to_ints)):
-#                 next_word = word_embeddings.word_indexer.get_object(i)
-#                 if next_word == "PAD":
-#                     next_word = " "
-#                 new_str = str + next_word
-#                 prob = model.get_next_word_log_probs(str)
-#                 if average_log_likelihood:
-#                     new_scr = (scr*len(str) + prob[i].item())/(t+1)
-#                 else:
-#                     new_scr = scr + prob[i].item()
-#                 beams[t+1].add((new_scr,new_str))
-#                 if new_str[-1] == '.' or len(new_str) == max_length:
-#                     sent.add((new_scr,new_str))
-#     res = []
-#     for s in sent.get_all():
-#         res.append(s[1])
-#     return res
+from language import sample_random
 
 class RNNLanguageModel:
     def __init__(self, model, word_embeddings):
@@ -127,7 +60,7 @@ def train_lm(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings)
         weights_matrix[i,:] = torch.from_numpy(word_embeddings.get_embedding(word)).float()
 
     emb_dim = 5
-    num_epochs = 20
+    num_epochs = 1
     model = LSTM(weights_matrix)
     lr = 1e-3
     loss = torch.nn.CrossEntropyLoss()
@@ -221,12 +154,3 @@ if __name__ == "__main__":
         log_prob = model.get_log_prob_sequence(s, " ")
         print(s, log_prob)
     print()
-
-    # for s in beam_search(model, word_embeddings, 10):
-    #     log_prob = model.get_log_prob_sequence(s, " ")
-    #     print(s, log_prob)
-    # print()
-
-    # for s in beam_search(model, word_embeddings, 10, average_log_likelihood=True):
-    #     log_prob = model.get_log_prob_sequence(s, " ")
-    #     print(s, log_prob)

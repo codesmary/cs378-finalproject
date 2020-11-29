@@ -1,5 +1,6 @@
 import torch
 from os import path
+from torch.nn.utils import weight_norm
 
 def create_embedding_layer(weights_matrix, non_trainable=True):
     num_embeddings, embedding_dim = weights_matrix.size()
@@ -10,6 +11,7 @@ def create_embedding_layer(weights_matrix, non_trainable=True):
 
     return emb_layer, num_embeddings, embedding_dim
 
+#I think I need to sample z but I'm not sure how to do this 
 class LSTM(torch.nn.Module):
     def __init__(self, weights_matrix):
         super().__init__()
@@ -41,12 +43,49 @@ class LSTM(torch.nn.Module):
         output = self.classifier(output.reshape(output.size(0)*output.size(1), output.size(2)))
         return output
 
+#TODO add embedding
+#TODO condition on "state" z
+#concatenating z with every word embedding of the decoder input
 class DilatedCNN(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
+    class CausalConv1dBlock(torch.nn.Module):
+        def __init__(self, in_channels, out_channels, kernel_size, dilation):
+            super().__init__()
+            self.network = torch.nn.Sequential(
+                torch.nn.ConstantPad1d((2*dilation,0),0),
+                weight_norm(torch.nn.Conv1d(in_channels, out_channels, kernel_size, dilation=dilation)),
+                torch.nn.LeakyReLU(),
+                torch.nn.Dropout(0.1),
+                torch.nn.ConstantPad1d((2*dilation,0),0),
+                weight_norm(torch.nn.Conv1d(out_channels, out_channels, kernel_size, dilation=dilation)),
+                torch.nn.LeakyReLU(),
+                torch.nn.Dropout(0.1)
+            )
+            self.resize = torch.nn.Conv1d(in_channels, out_channels, 1)
+            self.relu = torch.nn.LeakyReLU()
 
+        def forward(self, x):
+            residual = x
+            x = self.network(x)
+            residual = self.resize(residual)
+            return self.relu(x + residual)
+
+    def __init__(self, layers=[600,600]):
+        super().__init__()
+        c = 5020
+        L = []
+        total_dilation = 1
+        for l in layers:
+            L.append(self.CausalConv1dBlock(c, l, 3, total_dilation))
+            total_dilation *= 2
+            c = l
+        self.network = torch.nn.Sequential(*L)
+        self.classifier = torch.nn.Conv1d(c, 5020, 1)
+    
     def forward(self, X, state):
-        raise NotImplementedError()
+        x = F.pad(x, (1, 0), 'constant', 0)
+        x = self.network(x)
+        x = self.classifier(x)
+        return x
 
 class VariationalAutoencoder(torch.nn.Module):
     def __init__(self, encoder, decoder):
@@ -56,8 +95,7 @@ class VariationalAutoencoder(torch.nn.Module):
 
     def forward(self, enc_X, dec_X):
         enc_output = self.encoder(enc_X)
-        dec_state = self.decoder_init_state(enc_output)
-        return self.decoder(dec_X, dec_state)
+        return self.decoder(dec_X, enc_output)
 
 def save_model(model):
     if isinstance(model, VariationalAutoencoder):
