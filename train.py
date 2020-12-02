@@ -31,7 +31,7 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
         losses = []
 
         for ex in train_exs:
-            words = ex.words[:50]
+            words = ex.words[:max_sequence_length]
             input = torch.LongTensor()
             target = torch.LongTensor()
 
