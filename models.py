@@ -68,10 +68,13 @@ class DilatedCNN(torch.nn.Module):
         self.network = torch.nn.Sequential(*L)
         self.classifier = torch.nn.Conv1d(c, max_sequence_length * num_embeddings, 1)
     
-    #TODO condition on "state" z
-    #concatenating z with every word embedding of the decoder input
     def forward(self, X, enc_state):
-        X = self.network(X)
+        #"condition" on z
+        new_x = torch.zeros((1, X.shape[1], X.shape[2] + 1))
+        new_x[0,:,0] = enc_state
+        new_x[0,:,1:] = X
+
+        X = self.network(new_x)
         X = self.classifier(X)
         X = X.mean(dim=[2])
         X = X.reshape((self.max_sequence_length, self.num_embeddings))
