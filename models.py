@@ -2,21 +2,11 @@ import torch
 from os import path
 from torch.nn.utils import weight_norm
 
-def create_embedding_layer(weights_matrix, non_trainable=True):
-    num_embeddings, embedding_dim = weights_matrix.size()
-    emb_layer = torch.nn.Embedding(num_embeddings, embedding_dim)
-    emb_layer.load_state_dict({"weight": weights_matrix})
-    if non_trainable:
-        emb_layer.weight.requires_grad = False
-
-    return emb_layer, num_embeddings, embedding_dim
-
 class LSTM(torch.nn.Module):
-    def __init__(self, weights_matrix, hidden=150, layers=2, dropout=0.2, latent_dim=2):
+    def __init__(self, emb_dim, hidden=150, layers=2, dropout=0.2, latent_dim=2):
         super().__init__()
         self.hidden = hidden
         self.num_layers = layers
-        self.embedding, num_embeddings, emb_dim = create_embedding_layer(weights_matrix)
         self.rnn = torch.nn.LSTM(emb_dim, self.hidden, num_layers=self.num_layers, dropout=dropout, batch_first=True)
         self.classifier = torch.nn.Sequential(
             torch.nn.Linear(self.hidden, latent_dim),
@@ -32,23 +22,14 @@ class LSTM(torch.nn.Module):
                 torch.nn.init.xavier_uniform_(param)
 
     def forward(self, X):
-        """
-        :param X: [batch_size, seq_len] tensor
-        :return: context vector z with shape of [batch_size, latent_variable_size]
-        """
-        embedded_input = self.embedding(X)
-        batch_size = embedded_input.shape[0]
-        if len(embedded_input.shape) == 2:
-            embedded_input = embedded_input.unsqueeze(1)
+        batch_size = X.shape[0]
         init_state = (torch.zeros(2, batch_size, self.hidden),
                       torch.zeros(2, batch_size, self.hidden))
-        output, (hidden_state, cell_state) = self.rnn(embedded_input, init_state)
+        output, (hidden_state, cell_state) = self.rnn(X, init_state)
         output = self.classifier(output.reshape(output.size(0)*output.size(1), output.size(2)))
+        
         return output
 
-#TODO add embedding
-#TODO condition on "state" z
-#concatenating z with every word embedding of the decoder input
 class DilatedCNN(torch.nn.Module):
     class CausalConv1dBlock(torch.nn.Module):
         def __init__(self, in_channels, out_channels, kernel_size, dilation):
@@ -72,9 +53,12 @@ class DilatedCNN(torch.nn.Module):
             residual = self.resize(residual)
             return self.relu(x + residual)
 
-    def __init__(self, layers=[600,600]):
+    def __init__(self, max_sequence_length, num_embeddings, layers=[600,600]):
         super().__init__()
-        c = 5020
+        self.max_sequence_length = max_sequence_length
+        self.num_embeddings = num_embeddings
+        
+        c = max_sequence_length
         L = []
         total_dilation = 1
         for l in layers:
@@ -82,23 +66,56 @@ class DilatedCNN(torch.nn.Module):
             total_dilation *= 2
             c = l
         self.network = torch.nn.Sequential(*L)
-        self.classifier = torch.nn.Conv1d(c, 5020, 1)
+        self.classifier = torch.nn.Conv1d(c, max_sequence_length * num_embeddings, 1)
     
-    def forward(self, X, z):
-        x = F.pad(x, (1, 0), 'constant', 0)
-        x = self.network(x)
-        x = self.classifier(x)
-        return x
+    #TODO condition on "state" z
+    #concatenating z with every word embedding of the decoder input
+    def forward(self, X, enc_state):
+        X = self.network(X)
+        X = self.classifier(X)
+        X = X.mean(dim=[2])
+        X = X.reshape((self.max_sequence_length, self.num_embeddings))
+        return X
+
+def create_embedding_layer(weights_matrix, non_trainable=True):
+    num_embeddings, embedding_dim = weights_matrix.size()
+    emb_layer = torch.nn.Embedding(num_embeddings, embedding_dim)
+    emb_layer.load_state_dict({"weight": weights_matrix})
+    if non_trainable:
+        emb_layer.weight.requires_grad = False
+
+    return emb_layer, num_embeddings, embedding_dim
 
 class VariationalAutoencoder(torch.nn.Module):
-    def __init__(self, weights_matrix):
+    def __init__(self, weights_matrix, max_sequence_length):
         super().__init__()
-        self.encoder = LSTM(weights_matrix)
-        self.decoder = DilatedCNN()
+        self.embedding, num_embeddings, emb_dim = create_embedding_layer(weights_matrix)
+        self.encoder = LSTM(emb_dim)
+        self.decoder = DilatedCNN(max_sequence_length, num_embeddings)
 
-    def forward(self, enc_X, dec_X):
-        z = self.encoder(enc_X)
-        return self.decoder(dec_X, z)
+    def reparameterize(self, mu, log_var):
+        """
+        :param mu: mean from the encoder's latent space
+        :param log_var: log variance from the encoder's latent space
+        """
+        sigma = torch.exp(log_var/2)
+        eps = torch.randn_like(sigma)
+        sample = mu + (sigma * eps)
+        return sample
+
+    def forward(self, X, training=True, z=None):
+        embedded_input = self.embedding(X)
+
+        if training and not z:
+            output = self.encoder(embedded_input)
+            mu, log_var = output[:,0], output[:,1]
+            sample = self.reparameterize(mu, log_var)
+        elif not training and z:
+            sample = z
+        else:
+            raise Exception("Must be in training or testing mode")
+
+        return self.decoder(embedded_input, sample)
 
 def save_model(model):
     if isinstance(model, VariationalAutoencoder):
