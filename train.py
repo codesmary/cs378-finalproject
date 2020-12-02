@@ -1,4 +1,4 @@
-from models import VariationalAutoencoder
+from models import VariationalAutoencoder, save_model
 import torch
 import time
 import random
@@ -13,7 +13,7 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
         word = word_embeddings.word_indexer.get_object(i)
         weights_matrix[i,:] = torch.from_numpy(word_embeddings.get_embedding(word)).float()
 
-    max_sequence_length = 200
+    max_sequence_length = 50
     num_epochs = 1
     lr = 1e-3
     model = VariationalAutoencoder(weights_matrix, max_sequence_length)
@@ -28,8 +28,8 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
         random.shuffle(ex_indices)
 
         #TODO run on all training examples
-        for ex in train_exs[:1]:
-            words = ex.words
+        for ex in train_exs[:10]:
+            words = ex.words[:50]
             input = torch.LongTensor()
             target = torch.LongTensor()
 
@@ -85,3 +85,5 @@ if __name__ == "__main__":
     model = train_vae(train_exs, word_embeddings)
     train_eval_time = time.time() - start
     print("Time for training and evaluation: %.2f seconds" % train_eval_time)
+
+    save_model(model)
