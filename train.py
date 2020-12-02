@@ -3,6 +3,7 @@ import torch
 import time
 import random
 from sentiment_data import *
+import numpy as np
 
 def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings):
     matrix_len = 5020
@@ -27,8 +28,9 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
         ex_indices = list(range(len(train_exs)))
         random.shuffle(ex_indices)
 
-        #TODO run on all training examples
-        for ex in train_exs[:10]:
+        losses = []
+
+        for ex in train_exs:
             words = ex.words[:50]
             input = torch.LongTensor()
             target = torch.LongTensor()
@@ -68,10 +70,12 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
             output = model(input)
 
             l = loss(output, target)
+            losses.append(l.item())
             optimizer.zero_grad()
             l.backward()
             optimizer.step()
 
+        print(np.mean(losses))
         model.eval()
 
     return model
