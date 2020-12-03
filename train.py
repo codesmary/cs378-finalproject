@@ -1,11 +1,12 @@
-from models import VariationalAutoencoder, save_model
+from models import VariationalAutoencoder, save_model, load_model
 import torch
 import time
 import random
-from sentiment_data import *
+from argparse import ArgumentParser
 import numpy as np
+from sentiment_data import *
 
-def train_vae(train_exs: List[SentimentExample]):
+def train_vae(train_exs: List[SentimentExample], continue_training):
     matrix_len = 5020
     emb_dim = 300
     weights_matrix = torch.zeros(matrix_len, emb_dim)
@@ -16,9 +17,14 @@ def train_vae(train_exs: List[SentimentExample]):
         weights_matrix[i,:] = torch.from_numpy(word_embeddings.get_embedding(word)).float()
 
     max_sequence_length = 50
-    num_epochs = 1
+    num_epochs = 4
     lr = 1e-3
-    model = VariationalAutoencoder(weights_matrix, max_sequence_length)
+    
+    if continue_training:
+        model = load_model()
+    else:
+        model = VariationalAutoencoder(weights_matrix, max_sequence_length)
+    
     loss = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
 
@@ -82,11 +88,15 @@ def train_vae(train_exs: List[SentimentExample]):
     return model
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument('-c', '--continue_training', type=bool, default=True)
+    args = parser.parse_args()
+    
     train_exs = read_sentiment_examples("data/amazon_cells_labelled.txt")
     dev_exs = read_sentiment_examples("data/yelp_labelled.txt")
 
     start = time.time()
-    model = train_vae(train_exs)
+    model = train_vae(train_exs, args.continue_training)
     train_eval_time = time.time() - start
     print("Time for training and evaluation: %.2f seconds" % train_eval_time)
 

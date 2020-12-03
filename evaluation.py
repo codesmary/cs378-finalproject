@@ -34,6 +34,7 @@ def prepare_input(sentence):
 
     return input
 
+
 if __name__ == "__main__":
     #get output from training data
     train_exs = read_sentiment_examples("data/amazon_cells_labelled.txt")

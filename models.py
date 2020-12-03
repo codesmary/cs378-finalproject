@@ -127,10 +127,9 @@ class VariationalAutoencoder(torch.nn.Module):
         embedded_input = self.embedding(X)
 
         output = self.encoder(embedded_input)
-        mu, log_var = output[:,0], output[:,1]
-        sample = self.reparameterize(mu, log_var)
+        mu = output[:,0]
 
-        return sample
+        return mu
        
 
 def save_model(model):
