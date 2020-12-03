@@ -109,7 +109,6 @@ def read_word_embeddings(embeddings_file: str) -> WordEmbeddings:
                 vectors.append(np.zeros(vector.shape[0]))
             vectors.append(vector)
     f.close()
-    print("Read in " + repr(len(word_indexer)) + " vectors of size " + repr(vectors[0].shape[0]))
     # Turn vectors into a 2-D numpy array
     return WordEmbeddings(word_indexer, np.array(vectors))
 
