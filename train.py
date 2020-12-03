@@ -5,10 +5,11 @@ import random
 from sentiment_data import *
 import numpy as np
 
-def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings):
+def train_vae(train_exs: List[SentimentExample]):
     matrix_len = 5020
     emb_dim = 300
     weights_matrix = torch.zeros(matrix_len, emb_dim)
+    word_embeddings = read_word_embeddings("data/glove.6B.300d-relativized.txt")
 
     for i in range(len(word_embeddings.word_indexer.objs_to_ints)):
         word = word_embeddings.word_indexer.get_object(i)
@@ -83,10 +84,9 @@ def train_vae(train_exs: List[SentimentExample], word_embeddings: WordEmbeddings
 if __name__ == "__main__":
     train_exs = read_sentiment_examples("data/amazon_cells_labelled.txt")
     dev_exs = read_sentiment_examples("data/yelp_labelled.txt")
-    word_embeddings = read_word_embeddings("data/glove.6B.300d-relativized.txt")
 
     start = time.time()
-    model = train_vae(train_exs, word_embeddings)
+    model = train_vae(train_exs)
     train_eval_time = time.time() - start
     print("Time for training and evaluation: %.2f seconds" % train_eval_time)
 

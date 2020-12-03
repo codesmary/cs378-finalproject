@@ -1,7 +1,9 @@
 import torch
 from torch import save
+from torch import load
 from os import path
 from torch.nn.utils import weight_norm
+from sentiment_data import *
 
 class LSTM(torch.nn.Module):
     def __init__(self, emb_dim, hidden=150, layers=2, dropout=0.2, latent_dim=2):
@@ -121,7 +123,32 @@ class VariationalAutoencoder(torch.nn.Module):
 
         return self.decoder(embedded_input, sample)
 
+    def get_latent_vector(self, X):
+        embedded_input = self.embedding(X)
+
+        output = self.encoder(embedded_input)
+        mu, log_var = output[:,0], output[:,1]
+        sample = self.reparameterize(mu, log_var)
+
+        return sample
+       
+
 def save_model(model):
     if isinstance(model, VariationalAutoencoder):
         return save(model.state_dict(), path.join(path.dirname(path.abspath(__file__)), 'autoencoder.th'))
     raise ValueError("Model type '%s' not supported!" % str(type(model)))
+
+def load_model():
+    word_embeddings = read_word_embeddings("data/glove.6B.300d-relativized.txt")
+    max_sequence_length = 50
+    matrix_len = 5020
+    emb_dim = 300
+    weights_matrix = torch.zeros(matrix_len, emb_dim)
+
+    for i in range(len(word_embeddings.word_indexer.objs_to_ints)):
+        word = word_embeddings.word_indexer.get_object(i)
+        weights_matrix[i,:] = torch.from_numpy(word_embeddings.get_embedding(word)).float()
+
+    r = VariationalAutoencoder(weights_matrix, max_sequence_length)
+    r.load_state_dict(load(path.join(path.dirname(path.abspath(__file__)), 'autoencoder.th'), map_location='cpu'))
+    return r
