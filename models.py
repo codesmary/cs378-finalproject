@@ -116,7 +116,7 @@ class VariationalAutoencoder(torch.nn.Module):
             output = self.encoder(embedded_input)
             mu, log_var = output[:,0], output[:,1]
             sample = self.reparameterize(mu, log_var)
-        elif not training and z:
+        elif not training and z != None:
             sample = z
         else:
             raise Exception("Must be in training or testing mode")

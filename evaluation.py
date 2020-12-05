@@ -69,7 +69,7 @@ if __name__ == "__main__":
         z = model.get_latent_vector(input)[None,:]
         data = torch.cat((data, z), dim=0)
 
-    #create plot from latent vectors
+    # create plot from latent vectors
     data = data.detach().numpy()
     data = pd.DataFrame(data)
     
