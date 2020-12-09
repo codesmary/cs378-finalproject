@@ -107,7 +107,7 @@ def print_evaluation(dev_exs, lm, word_embeddings, output_bundle_path="output.js
     """
     text = ""
     num_words = 0
-    for ex in dev_exs[:10]:
+    for ex in dev_exs:
         for word in ex.words:
             text += word
             num_words += 1
@@ -125,7 +125,7 @@ def print_evaluation(dev_exs, lm, word_embeddings, output_bundle_path="output.js
 
 if __name__ == "__main__":
     train_exs = read_sentiment_examples("data/amazon_cells_labelled.txt")
-    dev_exs = read_sentiment_examples("data/yelp_labelled.txt")
+    dev_exs = read_sentiment_examples("data/yelp_labelled.txt")[:100]
     word_embeddings = read_word_embeddings("data/glove.6B.300d-relativized.txt")
     max_sequence_length = 50
     model = load_model()
@@ -166,8 +166,10 @@ if __name__ == "__main__":
 
     language_model = LanguageModel(model, word_embeddings, max_sequence_length)
     
+    #Output log prob and perplexity
     print_evaluation(dev_exs, language_model, word_embeddings)
 
+    #Output random samples
     print("purely random samples")
     for i in range(10):
         s = sample_random(language_model, word_embeddings)
@@ -176,6 +178,7 @@ if __name__ == "__main__":
 
     print()
 
+    #Output samples conditioned on average negative vector
     print("conditioned negatively")
     for i in range(10):
         s = sample_random_conditioned_on_z(language_model, word_embeddings, neg_data_mean)
@@ -184,10 +187,9 @@ if __name__ == "__main__":
 
     print()
 
+    #Output samples conditioned on average positive vector
     print("conditioned positively")
     for i in range(10):
         s = sample_random_conditioned_on_z(language_model, word_embeddings, pos_data_mean)
         log_prob = language_model.get_log_prob_sequence_conditioned_on_z(s, " ", pos_data_mean)
         print(s, log_prob)
-
-    #TODO get negative and positive translations for phrase
