@@ -1,1 +1,1 @@
-# cs378-finalproject
+# variational-autencoders-for-text-generation
