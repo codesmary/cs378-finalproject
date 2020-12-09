@@ -97,7 +97,8 @@ if __name__ == "__main__":
             pos_x.append(x)
             pos_y.append(y)
 
-    plt.scatter(neg_x, neg_y, c="r")
-    plt.scatter(pos_x, pos_y, c="g")
+    plt.scatter(neg_x, neg_y, c="r", label="Negative")
+    plt.scatter(pos_x, pos_y, c="g", label="Positive")
+    plt.legend()
 
     plt.savefig("amazon_pca.png")

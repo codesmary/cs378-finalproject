@@ -111,8 +111,6 @@ def print_evaluation(dev_exs, lm, word_embeddings, output_bundle_path="output.js
         for word in ex.words:
             text += word
             num_words += 1
-        text += " "
-        num_words += 1
     
     log_prob = lm.get_log_prob_sequence(text, " ")
     avg_log_prob = log_prob/num_words
@@ -125,7 +123,7 @@ def print_evaluation(dev_exs, lm, word_embeddings, output_bundle_path="output.js
 
 if __name__ == "__main__":
     train_exs = read_sentiment_examples("data/amazon_cells_labelled.txt")
-    dev_exs = read_sentiment_examples("data/yelp_labelled.txt")[:100]
+    dev_exs = read_sentiment_examples("data/yelp_labelled.txt")[:10]
     word_embeddings = read_word_embeddings("data/glove.6B.300d-relativized.txt")
     max_sequence_length = 50
     model = load_model()
