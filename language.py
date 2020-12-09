@@ -1,6 +1,6 @@
 import torch
 
-def sample_random(lm, word_embeddings, max_length: int = 10):
+def sample_random(lm, word_embeddings, max_length: int = 5):
     st = ''
     for i in range(max_length):
         prob = torch.FloatTensor(lm.get_next_word_log_probs(st))
@@ -14,7 +14,7 @@ def sample_random(lm, word_embeddings, max_length: int = 10):
             break
     return st
 
-def sample_random_conditioned_on_z(lm, word_embeddings, z, max_length: int = 10):
+def sample_random_conditioned_on_z(lm, word_embeddings, z, max_length: int = 5):
     st = ''
     for i in range(max_length):
         prob = torch.FloatTensor(lm.get_next_word_log_probs_conditioned_on_z(st, z))
