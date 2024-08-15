@@ -1,1 +1,1 @@
-# variational-autencoders-for-text-generation
+# variational-autoencoders-for-text-generation
